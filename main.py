@@ -1,11 +1,19 @@
-from ball import Ball
-from board import *
-from multis import *
-from settings import *
-import ctypes, pygame, pymunk, random, sys
+import pygame
+import pymunk
+import random
+import sys
 
-# Maintain resolution regardless of Windows scaling settings
-ctypes.windll.user32.SetProcessDPIAware()
+from ball import Ball
+from board import Board
+from settings import *
+
+# Import 'get_donor_profile_picture' function from 'utils.py'
+from utils import get_donor_profile_picture
+from tiktok_live_client import TikTokLiveClient
+
+# Create a TikTokLive client instance with the correct stream ID
+stream_id = "@yengner.png"
+tiktok_client = TikTokLiveClient(stream_id)
 
 class Game:
     def __init__(self):
@@ -58,6 +66,34 @@ class Game:
                     else:
                         self.board.pressing_play = False
 
+            # Receive data from TikTok Live API
+            try:
+                data = tiktok_client.receive_data()
+            except Exception as e:
+                print("Error receiving data:", e)
+                
+
+            # Check if the user is live
+            if data is None or data.get("live_status") != 1:
+                print("User is not live or no data received")
+                
+
+            try:
+                # Process gift or follower events
+                if "gift" in data or "follower" in data:
+                    # Extract donor's unique identifier
+                    donor_id = data["gift"]["user_id"] if "gift" in data else data["follower"]["id"]
+
+                    # Fetch the donor's profile picture
+                    donor_profile_picture = get_donor_profile_picture(donor_id)
+
+                    # Spawn a new ball with the donor's profile picture
+                    random_x = WIDTH // 2 + random.choice([random.randint(-20, -1), random.randint(1, 20)])
+                    new_ball = Ball((random_x, 20), self.space, self.board, self.delta_time, donor_profile_picture)
+                    self.ball_group.add(new_ball)
+            except Exception as e:
+                # Handle any error during event processing
+                print("Error processing event:", e)
             self.screen.fill(BG_COLOR)
 
             # Time variables
